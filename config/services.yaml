@@ -1,0 +1,22 @@
+services:
+    Netmex\RequestBundle\:
+        resource: "../src/"
+        autowire: true
+        autoconfigure: true
+        exclude: "../src/{Entity,Tests}"
+
+    Netmex\RequestBundle\ArgumentResolver\RequestArgumentResolver:
+        tags:
+            - { name: "controller.argument_value_resolver" }
+        arguments:
+            $parameterFactory: '@Netmex\RequestBundle\Factory\ParameterFactory'
+            $contentFactory: '@Netmex\RequestBundle\Factory\ContentFactory'
+
+    Netmex\RequestBundle\Factory\ParameterFactory:
+        arguments:
+            $validator: "@validator"
+
+    Netmex\RequestBundle\AbstractRequest:
+        arguments:
+            $parameterFactory: '@Netmex\RequestBundle\Factory\ParameterFactory'
+            $contentFactory: '@Netmex\RequestBundle\Factory\ContentFactory'
