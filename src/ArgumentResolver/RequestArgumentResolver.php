@@ -9,6 +9,7 @@ use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Controller\ValueResolverInterface;
 use Symfony\Component\HttpKernel\ControllerMetadata\ArgumentMetadata;
 use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
+use Symfony\Component\Validator\Constraints\NotBlank;
 
 class RequestArgumentResolver implements ValueResolverInterface
 {
@@ -38,11 +39,15 @@ class RequestArgumentResolver implements ValueResolverInterface
             return [];
         }
 
+        $data = $this->extractRequestData($request);
+
         $this->contentTypeValidator($request);
+
+        $this->validateNotBlankFields($type, $data);
 
         /** @var AbstractRequest $type */
         $abstractRequest = new $type(
-            $request->toArray(),
+            $data,
             $request->getMethod(),
             $request->headers,
             $request->getContentTypeFormat(),
@@ -53,11 +58,38 @@ class RequestArgumentResolver implements ValueResolverInterface
         yield $abstractRequest;
     }
 
+    private function extractRequestData(Request $request): array
+    {
+        return $request->isMethod('GET') ? $request->query->all() : $request->request->all();
+    }
+
     public function contentTypeValidator(Request $request): void
     {
         $format = $request->getContentTypeFormat();
         if (!in_array($format, $this->allowedFormats, true)) {
             throw new BadRequestHttpException('Unsupported content type: ' . $format);
         }
+    }
+
+    private function validateNotBlankFields(string $dtoClass, array $data): void
+    {
+        $refClass = new \ReflectionClass($dtoClass);
+        foreach ($refClass->getProperties(\ReflectionProperty::IS_PUBLIC) as $property) {
+            $attributes = $property->getAttributes(NotBlank::class);
+            if (count($attributes) === 0) {
+                continue;
+            }
+
+            $name = $property->getName();
+
+            if (!isset($data[$name]) || $this->isBlank($data[$name])) {
+                throw new BadRequestHttpException("Field '{$name}' must not be blank.");
+            }
+        }
+    }
+
+    private function isBlank(mixed $value): bool
+    {
+        return $value === null || $value === '' || (is_array($value) && empty($value));
     }
 }
