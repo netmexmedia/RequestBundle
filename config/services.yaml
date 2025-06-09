@@ -16,7 +16,7 @@ services:
         arguments:
             $validator: "@validator"
 
-    Netmex\RequestBundle\AbstractRequest:
+    Netmex\RequestBundle\Request\AbstractRequest:
         arguments:
             $parameterFactory: '@Netmex\RequestBundle\Factory\ParameterFactory'
             $contentFactory: '@Netmex\RequestBundle\Factory\ContentFactory'
