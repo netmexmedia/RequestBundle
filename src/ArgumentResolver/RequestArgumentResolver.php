@@ -35,6 +35,10 @@ class RequestArgumentResolver implements ValueResolverInterface
         }
 
         $data = $this->extractRequestData($request);
+        $orderByFields = $data['orderBy'] ?? [];
+        if (isset($data['orderBy'])) {
+            unset($data['orderBy']);
+        }
 
         /** @var AbstractRequest $type */
         $abstractRequest = new $type(
@@ -42,19 +46,21 @@ class RequestArgumentResolver implements ValueResolverInterface
             $this->parameterFactory
         );
 
+        $orderBy = $this->resolveOrderBy($abstractRequest, $orderByFields);
+        if ($orderBy) {
+            $abstractRequest->setOrderBy($orderBy);
+        }
+
         $paginator = $this->resolvePaginatorIfNeeded($abstractRequest, $request, $data);
         if ($paginator) {
-            // You could inject paginator into DTO or yield a wrapper
             $abstractRequest->setPaginator($paginator);
         }
 
         yield $abstractRequest;
     }
 
-    private function resolveOrderBy(AbstractRequest $requestDto, Request $request): array
+    private function resolveOrderBy(AbstractRequest $requestDto, array $orderByInput): array
     {
-        $orderByInput = $request->query->all('orderBy'); // Symfony parses orderBy[name]=asc properly
-
         if (!is_array($orderByInput)) {
             return [];
         }
@@ -89,6 +95,7 @@ class RequestArgumentResolver implements ValueResolverInterface
         return $orderBy;
     }
 
+
     private function resolvePaginatorIfNeeded(AbstractRequest $abstractRequest, Request $request, array $data): ?PaginatorRequest
     {
         $refClass = new \ReflectionClass($abstractRequest);
@@ -96,10 +103,6 @@ class RequestArgumentResolver implements ValueResolverInterface
 
         if (empty($attributes)) {
             return null;
-        }
-
-        if (isset($data['orderBy'])) {
-            unset($data['orderBy']);
         }
 
         return new PaginatorRequest(
