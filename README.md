@@ -45,7 +45,7 @@ class ExampleController
     public function index(CustomRequest $request): Response
     {
         // Validated and sanitized content
-        $results = $request->getContent()->validate();
+        $results = $request->content();
 
         return new Response($results);
     }
@@ -55,17 +55,10 @@ class ExampleController
 ### Accessing Fields
 
 ##### All fields
-Use ```getContent(bool $suppress = true)``` to retrieve all fields.
+Use ```content()``` to retrieve all fields.
 
 ```php
-// Raw values (filtered if $suppress = true), default is true
-$request->getContent()->value();
-```
-
-```php
-// Validated values (throws on error)
-$request->getContent()->validate();
-
+$request->content();
 ```
 
 ##### Single field
@@ -73,12 +66,7 @@ You can also fetch a single field using the ```get(string $key, ?string $default
 
 ```php
 // Raw value (with optional fallback)
-$request->get('fieldName')->value();
-```
-
-```php
-// Validated value (throws on constraint violations)
-$request->get('fieldName')->validate();
+$request->get('fieldName', 'default');
 ```
 
 ## Recommended Directory Layout
