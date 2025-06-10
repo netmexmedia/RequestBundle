@@ -5,6 +5,7 @@ namespace Netmex\RequestBundle\Parameter;
 use Netmex\RequestBundle\Factory\ParameterFactory;
 use Netmex\RequestBundle\Iterator\AllowedFieldIterator;
 use Netmex\RequestBundle\Request\AbstractRequest;
+use Netmex\RequestBundle\Util\ReflectionCache;
 
 class ParameterBag implements \IteratorAggregate, \Countable
 {
@@ -12,18 +13,21 @@ class ParameterBag implements \IteratorAggregate, \Countable
     private ParameterFactory $parameterFactory;
     private AbstractRequest $abstractRequest;
 
-    public function __construct(array $data = [], ParameterFactory $parameterFactory, AbstractRequest $abstractRequest)
+    public function __construct(ParameterFactory $parameterFactory, AbstractRequest $abstractRequest, array $data = [])
     {
         $this->parameterFactory = $parameterFactory;
         $this->abstractRequest = $abstractRequest;
 
         $allowedFields = new AllowedFieldIterator($abstractRequest);
+        $defaultProperties = ReflectionCache::getDefaultProperties($abstractRequest);
 
         foreach ($allowedFields as $field) {
             $value = null;
 
             if (array_key_exists($field, $data)) {
                 $value = $data[$field];
+            } elseif (array_key_exists($field, $defaultProperties)) {
+                $value = $defaultProperties[$field];
             }
 
             $this->set($field, $value);
@@ -79,6 +83,7 @@ class ParameterBag implements \IteratorAggregate, \Countable
 
     public function set(string $key, string|array|null $values, bool $replace = true): void
     {
+
         $parameter = $this->parameterFactory->create($key, $values, $this->abstractRequest);
 
         if (\is_array($values)) {
@@ -87,7 +92,7 @@ class ParameterBag implements \IteratorAggregate, \Countable
             if ($replace || !isset($this->data[$key])) {
                 $this->data[$key] = $parameter;
             } else {
-                $this->data[$key] = array_merge($this->data[$key], $parameter);
+                $this->data[$key] = array_merge($this->data[$key], (array) $parameter);
             }
 
             return;

@@ -2,6 +2,8 @@
 
 namespace Netmex\RequestBundle\Iterator;
 
+use Netmex\RequestBundle\Util\ReflectionCache;
+
 class AllowedFieldIterator implements \IteratorAggregate
 {
     private const NOT_ALLOWED_FIELDS = [
@@ -15,14 +17,7 @@ class AllowedFieldIterator implements \IteratorAggregate
 
     public function __construct(object $dtoInstance)
     {
-        $reflection = new \ReflectionClass($dtoInstance);
-
-        foreach ($reflection->getProperties() as $property) {
-            if ($property->getDeclaringClass()->getName() === get_class($dtoInstance)) {
-                $this->allowedProperties[] = $property->getName();
-            }
-        }
-
+        $this->allowedProperties = ReflectionCache::getDeclaredPropertyNames($dtoInstance);
         $this->removeNotAllowedFields();
     }
 

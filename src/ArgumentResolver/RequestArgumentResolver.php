@@ -2,27 +2,21 @@
 
 namespace Netmex\RequestBundle\ArgumentResolver;
 
-use Netmex\RequestBundle\Factory\ContentFactory;
+use Netmex\RequestBundle\Attribute\Paginator;
 use Netmex\RequestBundle\Factory\ParameterFactory;
 use Netmex\RequestBundle\Request\AbstractRequest;
+use Netmex\RequestBundle\Request\PaginatorRequest;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Controller\ValueResolverInterface;
 use Symfony\Component\HttpKernel\ControllerMetadata\ArgumentMetadata;
-use Symfony\Component\HttpKernel\Exception\BadRequestHttpException;
-use Symfony\Component\Validator\Constraints\NotBlank;
 
 class RequestArgumentResolver implements ValueResolverInterface
 {
-    private array $allowedFormats = ['json', 'xml', 'yaml'];
-
     private ParameterFactory $parameterFactory;
 
-    private ContentFactory $contentFactory;
-
-    public function __construct(ParameterFactory $parameterFactory, ContentFactory $contentFactory)
+    public function __construct(ParameterFactory $parameterFactory)
     {
         $this->parameterFactory = $parameterFactory;
-        $this->contentFactory = $contentFactory;
     }
 
     public function supports(string $type): bool
@@ -41,55 +35,59 @@ class RequestArgumentResolver implements ValueResolverInterface
 
         $data = $this->extractRequestData($request);
 
-        $this->contentTypeValidator($request);
-
-        $this->validateNotBlankFields($type, $data);
-
         /** @var AbstractRequest $type */
         $abstractRequest = new $type(
             $data,
-            $request->getMethod(),
-            $request->headers,
-            $request->getContentTypeFormat(),
-            $this->parameterFactory,
-            $this->contentFactory
+            $this->parameterFactory
         );
+
+        $paginator = $this->resolvePaginatorIfNeeded($abstractRequest, $request);
+        if ($paginator) {
+            // You could inject paginator into DTO or yield a wrapper
+            $abstractRequest->setPaginator($paginator);
+        }
 
         yield $abstractRequest;
     }
 
+    private function resolvePaginatorIfNeeded(AbstractRequest $abstractRequest, Request $request): ?PaginatorRequest
+    {
+        $refClass = new \ReflectionClass($abstractRequest);
+        $attributes = $refClass->getAttributes(Paginator::class);
+
+        if (empty($attributes)) {
+            return null;
+        }
+
+        return new PaginatorRequest(
+            $this->extractRequestData($request),
+            $this->parameterFactory
+        );
+    }
+
+
     private function extractRequestData(Request $request): array
     {
-        return $request->isMethod('GET') ? $request->query->all() : $request->request->all();
-    }
-
-    public function contentTypeValidator(Request $request): void
-    {
-        $format = $request->getContentTypeFormat();
-        if (!in_array($format, $this->allowedFormats, true)) {
-            throw new BadRequestHttpException('Unsupported content type: ' . $format);
+        if ($request->isMethod('GET')) {
+            return $request->query->all();
         }
-    }
 
-    private function validateNotBlankFields(string $dtoClass, array $data): void
-    {
-        $refClass = new \ReflectionClass($dtoClass);
-        foreach ($refClass->getProperties(\ReflectionProperty::IS_PUBLIC) as $property) {
-            $attributes = $property->getAttributes(NotBlank::class);
-            if (count($attributes) === 0) {
-                continue;
-            }
-
-            $name = $property->getName();
-
-            if (!isset($data[$name]) || $this->isBlank($data[$name])) {
-                throw new BadRequestHttpException("Field '{$name}' must not be blank.");
-            }
+        if ($this->isJsonRequest($request)) {
+            return $this->parseJsonRequest($request);
         }
+
+        return $request->request->all();
     }
 
-    private function isBlank(mixed $value): bool
+    private function isJsonRequest(Request $request): bool
     {
-        return $value === null || $value === '' || (is_array($value) && empty($value));
+        return $request->getContentTypeFormat() === 'json';
     }
+
+    private function parseJsonRequest(Request $request): array
+    {
+        $json = json_decode($request->getContent(), true);
+        return is_array($json) ? $json : [];
+    }
+
 }

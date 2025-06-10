@@ -2,86 +2,51 @@
 
 namespace Netmex\RequestBundle\Request;
 
-use Netmex\RequestBundle\Content\Content;
-use Netmex\RequestBundle\Factory\ContentFactory;
 use Netmex\RequestBundle\Factory\ParameterFactory;
-use Netmex\RequestBundle\Iterator\AllowedFieldIterator;
+use Netmex\RequestBundle\Iterator\ValidatedFieldIterator;
 use Netmex\RequestBundle\Parameter\ParameterBag;
 
 abstract class AbstractRequest
 {
     public ParameterBag $content;
 
-    public $method;
-
-    public $headers;
-
-    public $contentType;
-
     private ParameterFactory $parameterFactory;
 
-    private ContentFactory $contentFactory;
+    private ?PaginatorRequest $paginator;
 
     public function __construct(
         array $content,
-        string $method,
-        $headers,
-        $contentType,
         ParameterFactory $parameterFactory,
-        ContentFactory $contentFactory
     ) {
         $this->parameterFactory = $parameterFactory;
-        $this->contentFactory = $contentFactory;
-        $this->content = new ParameterBag($content, $this->parameterFactory, $this);
-        $this->method = $method;
-        $this->headers = $headers;
-        $this->contentType = $contentType;
+        $this->content = new ParameterBag($this->parameterFactory, $this, $content);
+        $this->paginator = null;
     }
 
-    public function getAllowedFields(): \IteratorAggregate
+    public function get(string $key, ?string $default = null): mixed
     {
-        return new AllowedFieldIterator($this);
+        return $this->content->get($key, $default)->validate();
     }
 
-    public function get(string $key, ?string $default = null)
+    public function content(): array
     {
-        /** @var AllowedFieldIterator $allowedFields */
-        $allowedFields = $this->getAllowedFields();
+        $iterator = new ValidatedFieldIterator($this->content);
+        $results = [];
 
-        if (!in_array($key, $allowedFields->getAllowedProperties(), true)) {
-            throw new \InvalidArgumentException("Field '{$key}' is not allowed.");
+        foreach ($iterator as $key => $value) {
+            $results[$key] = $value;
         }
 
-        return $this->content->get($key, $default);
+        return $results;
     }
 
-    public function getContent(bool $strict = true): Content
+    public function setPaginator(PaginatorRequest $paginator): void
     {
-        if ($strict) {
-            $this->content->removeNullValues();
-        }
-
-        return $this->contentFactory->create($this->content, $this);
+        $this->paginator = $paginator;
     }
 
-    public function getMethod(): string
+    public function paginator(): array
     {
-        return $this->method;
+        return $this->paginator?->content() ?? [];
     }
-
-    public function getHeaders(): mixed
-    {
-        return $this->headers;
-    }
-
-    public function getContentType(): mixed
-    {
-        return $this->contentType;
-    }
-
-    public function isXmlHttpRequest() {}
-
-    public function isJson() {}
-
-    public function isXml() {}
 }

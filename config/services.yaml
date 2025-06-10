@@ -10,13 +10,13 @@ services:
             - { name: "controller.argument_value_resolver" }
         arguments:
             $parameterFactory: '@Netmex\RequestBundle\Factory\ParameterFactory'
-            $contentFactory: '@Netmex\RequestBundle\Factory\ContentFactory'
+
 
     Netmex\RequestBundle\Factory\ParameterFactory:
         arguments:
             $validator: "@validator"
+            $caster: '@Netmex\RequestBundle\Caster\TypeCaster'
 
     Netmex\RequestBundle\Request\AbstractRequest:
         arguments:
             $parameterFactory: '@Netmex\RequestBundle\Factory\ParameterFactory'
-            $contentFactory: '@Netmex\RequestBundle\Factory\ContentFactory'
