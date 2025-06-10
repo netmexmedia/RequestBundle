@@ -42,7 +42,7 @@ class RequestArgumentResolver implements ValueResolverInterface
             $this->parameterFactory
         );
 
-        $paginator = $this->resolvePaginatorIfNeeded($abstractRequest, $request);
+        $paginator = $this->resolvePaginatorIfNeeded($abstractRequest, $request, $data);
         if ($paginator) {
             // You could inject paginator into DTO or yield a wrapper
             $abstractRequest->setPaginator($paginator);
@@ -89,7 +89,7 @@ class RequestArgumentResolver implements ValueResolverInterface
         return $orderBy;
     }
 
-    private function resolvePaginatorIfNeeded(AbstractRequest $abstractRequest, Request $request): ?PaginatorRequest
+    private function resolvePaginatorIfNeeded(AbstractRequest $abstractRequest, Request $request, array $data): ?PaginatorRequest
     {
         $refClass = new \ReflectionClass($abstractRequest);
         $attributes = $refClass->getAttributes(Paginator::class);
@@ -98,8 +98,12 @@ class RequestArgumentResolver implements ValueResolverInterface
             return null;
         }
 
+        if (isset($data['orderBy'])) {
+            unset($data['orderBy']);
+        }
+
         return new PaginatorRequest(
-            $this->extractRequestData($request),
+            $data,
             $this->parameterFactory
         );
     }
