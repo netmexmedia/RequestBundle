@@ -30,6 +30,10 @@ class ParameterBag implements \IteratorAggregate, \Countable
                 $value = $defaultProperties[$field];
             }
 
+            if ($value === null && ReflectionCache::hasNullableAttribute($abstractRequest, $field)) {
+                continue;
+            }
+
             $this->set($field, $value);
         }
     }
