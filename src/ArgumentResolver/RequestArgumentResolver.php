@@ -2,6 +2,7 @@
 
 namespace Netmex\RequestBundle\ArgumentResolver;
 
+use Netmex\RequestBundle\Attribute\OrderBy;
 use Netmex\RequestBundle\Attribute\Paginator;
 use Netmex\RequestBundle\Factory\ParameterFactory;
 use Netmex\RequestBundle\Request\AbstractRequest;
@@ -48,6 +49,44 @@ class RequestArgumentResolver implements ValueResolverInterface
         }
 
         yield $abstractRequest;
+    }
+
+    private function resolveOrderBy(AbstractRequest $requestDto, Request $request): array
+    {
+        $orderByInput = $request->query->all('orderBy'); // Symfony parses orderBy[name]=asc properly
+
+        if (!is_array($orderByInput)) {
+            return [];
+        }
+
+        $refClass = new \ReflectionClass($requestDto);
+        $sortable = [];
+
+        foreach ($refClass->getProperties() as $property) {
+            $attrs = $property->getAttributes(OrderBy::class);
+            if (empty($attrs)) {
+                continue;
+            }
+
+            $dtoField = $property->getName();
+            $dbField = $attrs[0]->newInstance()->name ?? $dtoField;
+            $sortable[$dtoField] = $dbField;
+        }
+
+        $orderBy = [];
+
+        foreach ($orderByInput as $key => $direction) {
+            $direction = strtoupper($direction);
+            if (!in_array($direction, ['ASC', 'DESC'], true)) {
+                continue;
+            }
+
+            if (isset($sortable[$key])) {
+                $orderBy[$sortable[$key]] = $direction;
+            }
+        }
+
+        return $orderBy;
     }
 
     private function resolvePaginatorIfNeeded(AbstractRequest $abstractRequest, Request $request): ?PaginatorRequest

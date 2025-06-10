@@ -12,6 +12,8 @@ abstract class AbstractRequest
 
     private ParameterFactory $parameterFactory;
 
+    private array $orderBy = [];
+
     private ?PaginatorRequest $paginator;
 
     public function __construct(
@@ -38,6 +40,16 @@ abstract class AbstractRequest
         }
 
         return $results;
+    }
+
+    public function setOrderBy(array $orderBy): void
+    {
+        $this->orderBy = $orderBy;
+    }
+
+    public function orderBy(): array
+    {
+        return $this->orderBy;
     }
 
     public function setPaginator(PaginatorRequest $paginator): void
