@@ -36,10 +36,10 @@ class RequestArgumentResolver implements ValueResolverInterface
         }
 
         $data = $this->extractRequestData($request);
-        $orderByFields = $data['orderBy'] ?? [];
-        if (isset($data['orderBy'])) {
-            unset($data['orderBy']);
-        }
+        $orderByField = $data['orderBy'] ?? null;
+        $orderDirection = $data['orderDirection'] ?? null;
+
+        unset($data['orderBy'], $data['orderDirection']);
 
         /** @var AbstractRequest $type */
         $abstractRequest = new $type(
@@ -47,7 +47,7 @@ class RequestArgumentResolver implements ValueResolverInterface
             $this->parameterFactory
         );
 
-        $orderBy = $this->resolveOrderBy($abstractRequest, $orderByFields);
+        $orderBy = $this->resolveOrderBy($abstractRequest, $orderByField, $orderDirection);
         if ($orderBy) {
             $abstractRequest->setOrderBy($orderBy);
         }
@@ -60,27 +60,19 @@ class RequestArgumentResolver implements ValueResolverInterface
         yield $abstractRequest;
     }
 
-    private function resolveOrderBy(AbstractRequest $requestDto, array $orderByInput): array
+    private function resolveOrderBy(AbstractRequest $requestDto, ?string $field, ?string $direction): array
     {
-        if (!is_array($orderByInput)) {
+        if (!$field || !in_array(strtoupper($direction), ['ASC', 'DESC'], true)) {
             return [];
         }
 
         $sortable = ReflectionCache::getOrderableFields($requestDto);
-        $orderBy = [];
 
-        foreach ($orderByInput as $key => $direction) {
-            $direction = strtoupper($direction);
-            if (!in_array($direction, ['ASC', 'DESC'], true)) {
-                continue;
-            }
-
-            if (isset($sortable[$key])) {
-                $orderBy[$sortable[$key]] = $direction;
-            }
+        if (!isset($sortable[$field])) {
+            return [];
         }
 
-        return $orderBy;
+        return [$sortable[$field] => strtoupper($direction)];
     }
 
     private function resolvePaginatorIfNeeded(AbstractRequest $abstractRequest, Request $request, array $data): ?PaginatorRequest
