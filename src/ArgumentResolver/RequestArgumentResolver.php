@@ -7,6 +7,7 @@ use Netmex\RequestBundle\Attribute\Paginator;
 use Netmex\RequestBundle\Factory\ParameterFactory;
 use Netmex\RequestBundle\Request\AbstractRequest;
 use Netmex\RequestBundle\Request\PaginatorRequest;
+use Netmex\RequestBundle\Util\ReflectionCache;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpKernel\Controller\ValueResolverInterface;
 use Symfony\Component\HttpKernel\ControllerMetadata\ArgumentMetadata;
@@ -36,7 +37,6 @@ class RequestArgumentResolver implements ValueResolverInterface
 
         $data = $this->extractRequestData($request);
         $orderByFields = $data['orderBy'] ?? [];
-        dd($orderByFields);
         if (isset($data['orderBy'])) {
             unset($data['orderBy']);
         }
@@ -66,20 +66,7 @@ class RequestArgumentResolver implements ValueResolverInterface
             return [];
         }
 
-        $refClass = new \ReflectionClass($requestDto);
-        $sortable = [];
-
-        foreach ($refClass->getProperties() as $property) {
-            $attrs = $property->getAttributes(OrderBy::class);
-            if (empty($attrs)) {
-                continue;
-            }
-
-            $dtoField = $property->getName();
-            $dbField = $attrs[0]->newInstance()->name ?? $dtoField;
-            $sortable[$dtoField] = $dbField;
-        }
-
+        $sortable = ReflectionCache::getOrderableFields($requestDto);
         $orderBy = [];
 
         foreach ($orderByInput as $key => $direction) {
@@ -96,13 +83,9 @@ class RequestArgumentResolver implements ValueResolverInterface
         return $orderBy;
     }
 
-
     private function resolvePaginatorIfNeeded(AbstractRequest $abstractRequest, Request $request, array $data): ?PaginatorRequest
     {
-        $refClass = new \ReflectionClass($abstractRequest);
-        $attributes = $refClass->getAttributes(Paginator::class);
-
-        if (empty($attributes)) {
+        if (!ReflectionCache::hasPaginatorAttribute($abstractRequest)) {
             return null;
         }
 
@@ -111,7 +94,6 @@ class RequestArgumentResolver implements ValueResolverInterface
             $this->parameterFactory
         );
     }
-
 
     private function extractRequestData(Request $request): array
     {
@@ -136,5 +118,4 @@ class RequestArgumentResolver implements ValueResolverInterface
         $json = json_decode($request->getContent(), true);
         return is_array($json) ? $json : [];
     }
-
 }

@@ -3,6 +3,8 @@
 namespace Netmex\RequestBundle\Util;
 
 use Netmex\RequestBundle\Attribute\Nullable;
+use Netmex\RequestBundle\Attribute\OrderBy;
+use Netmex\RequestBundle\Attribute\Paginator;
 use ReflectionClass;
 use ReflectionNamedType;
 use ReflectionProperty;
@@ -81,5 +83,44 @@ class ReflectionCache
         }
 
         return self::$nullableAttributeCache[$key];
+    }
+
+    public static function getOrderableFields(object $object): array
+    {
+        $class = get_class($object);
+        $cacheKey = "$class::__orderable";
+
+        static $orderableCache = [];
+
+        if (!isset($orderableCache[$cacheKey])) {
+            $sortable = ['id' => 'id']; // Always allow ID
+
+            foreach (self::getReflectionClass($object)->getProperties() as $property) {
+                $attrs = $property->getAttributes(OrderBy::class);
+                if (!empty($attrs)) {
+                    $dtoField = $property->getName();
+                    $dbField = $attrs[0]->newInstance()->name ?? $dtoField;
+                    $sortable[$dtoField] = $dbField;
+                }
+            }
+
+            $orderableCache[$cacheKey] = $sortable;
+        }
+
+        return $orderableCache[$cacheKey];
+    }
+
+    public static function hasPaginatorAttribute(object $object): bool
+    {
+        $class = get_class($object);
+
+        static $paginatorCache = [];
+
+        if (!array_key_exists($class, $paginatorCache)) {
+            $refClass = self::getReflectionClass($class);
+            $paginatorCache[$class] = !empty($refClass->getAttributes(Paginator::class));
+        }
+
+        return $paginatorCache[$class];
     }
 }
