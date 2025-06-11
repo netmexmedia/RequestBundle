@@ -74,35 +74,68 @@ class ParameterBag implements \IteratorAggregate, \Countable
         }
     }
 
-    public function get(string $key, ?string $default = null)
+    public function get(string $key, $default = null): array|string|Parameter
     {
-        $data = $this->all($key);
-
-        if (!$data->value()) {
-            return $this->parameterFactory->create($key, $default, $this->abstractRequest);
+        if (!isset($this->data[$key])) {
+            return $default;
         }
 
-        return $data;
+        $value = $this->data[$key];
+
+        if ($value instanceof ParameterBag) {
+            return $value->toArray();
+        }
+
+        if ($value instanceof Parameter) {
+            return $value->value();
+        }
+
+        return $value;
     }
 
-    public function set(string $key, string|array|null $values, bool $replace = true): void
+    public function toArray(): array
     {
-
-        $parameter = $this->parameterFactory->create($key, $values, $this->abstractRequest);
-
-        if (\is_array($values)) {
-            $values = array_values($values);
-
-            if ($replace || !isset($this->data[$key])) {
-                $this->data[$key] = $parameter;
+        $result = [];
+        foreach ($this->data as $key => $value) {
+            if ($value instanceof ParameterBag) {
+                $result[$key] = $value->toArray();
+            } elseif ($value instanceof Parameter) {
+                $result[$key] = $value->value();
             } else {
-                $this->data[$key] = array_merge($this->data[$key], (array) $parameter);
+                $result[$key] = $value;
             }
+        }
+        return $result;
+    }
 
-            return;
+    public function set(string $key, $values, bool $replace = true): void
+    {
+        if (is_array($values)) {
+            if ($this->isAssoc($values)) {
+                $nestedBag = new ParameterBag($this->parameterFactory, $this->abstractRequest, $values);
+                $this->data[$key] = $nestedBag;
+                return;
+            } else {
+                if ($replace || !isset($this->data[$key])) {
+                    $this->data[$key] = $values;
+                } else {
+                    $this->data[$key] = array_merge($this->data[$key], $values);
+                }
+                return;
+            }
         }
 
+        $parameter = $this->parameterFactory->create($key, $values, $this->abstractRequest);
         $this->data[$key] = $parameter;
+    }
+
+    private function isAssoc(array $arr): bool
+    {
+        if ([] === $arr) {
+            return false;
+        }
+
+        return array_keys($arr) !== range(0, count($arr) - 1);
     }
 
     public function has(string $key): bool
