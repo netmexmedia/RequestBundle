@@ -36,6 +36,7 @@ class RequestArgumentResolver implements ValueResolverInterface
 
         $data = $this->extractRequestData($request);
         $orderByFields = $data['orderBy'] ?? [];
+        dd($orderByFields);
         if (isset($data['orderBy'])) {
             unset($data['orderBy']);
         }
